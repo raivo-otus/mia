@@ -58,10 +58,7 @@ getJointRPCA <- function(x,
     transform <- match.arg(transform)
 
     # Select the object to operate on
-    y <- x
-    if (!is.null(altexp)) {
-        y <- altExp(x, altexp)
-    }
+    y <- .check_and_get_altExp(x, altexp)
 
     # Use universal front-end to build tables + run .joint_rpca()
     res <- jointRPCAuniversal(
