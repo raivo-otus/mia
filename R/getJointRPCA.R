@@ -86,9 +86,6 @@ getJointRPCA <- function(x,
 
     # Ensure embedding rownames match colnames of the target object (Bioconductor requirement)
     target_cols <- colnames(x)
-    if (!is.null(altexp)) {
-        target_cols <- colnames(x)
-    }
 
     if (is.null(target_cols)) {
         stop("Cannot store reducedDim: 'x' has no colnames().", call. = FALSE)
