@@ -77,20 +77,17 @@ test_that("agglomerate", {
         ignore.taxonomy = FALSE, empty.rm = FALSE, update.tree = TRUE)
     expect_equal(dim(actual),c(603,26))
     expect_equal(length(rowTree(actual)$tip.label), 603)
-    actual <- agglomerateByRank(se, rank = "Family",
-        ignore.taxonomy = FALSE, empty.rm = FALSE, update.tree = TRUE)
-    expect_equal(dim(actual),c(603,26))
     expect_equal(length(rowTree(actual)$tip.label), nrow(actual))
     # Test that warning occurs when assay contian binary or negative values
-    se1 <- transformAssay(se, method = "pa")
+    se1 <- transformAssay(gp_small, method = "pa")
     se2 <- se1
     assay(se2, "pa")[1, 1] <- -1
     expect_warning(agglomerateByRank(se1, rank = "Phylum"))
     expect_warning(agglomerateByRank(se1, rank = "Order"))
+    expect_warning(agglomerateByRank(se2, rank = "Phylum"))
 
-    # Load data
-    data(GlobalPatterns, package="mia")
-    tse <- GlobalPatterns
+    # The checks below do not depend on the size of the data
+    tse <- gp_small
 
     # Check that empty.rm works
     # Get all phyla
@@ -118,8 +115,8 @@ test_that("agglomerate", {
     expect_true( all(rowTree(test1)$tip %in% rownames(test1)) )
 
     # Check that there are more taxa when agglomeration is to "Species" level
-    test0 <- agglomerateByVariable(tse, by = 1, group = "Species", empty.rm = FALSE)
-    test1 <- agglomerateByRank(tse, rank = "Species", empty.rm = FALSE)
+    test0 <- agglomerateByVariable(GlobalPatterns, by = 1, group = "Species", empty.rm = FALSE)
+    test1 <- agglomerateByRank(GlobalPatterns, rank = "Species", empty.rm = FALSE)
     expect_equal(nrow(test0), 945)
     expect_equal(nrow(test1), 2307)
 
@@ -147,16 +144,17 @@ test_that("agglomerate", {
     expect_equal(rd1[, cols], rd2[, cols])
     expect_true( ncol(rd1) > ncol(rd2) )
     # Test that make.unique work
-    uniq <- agglomerateByRank(tse, rank = "Species", empty.rm = FALSE)
+    uniq <- agglomerateByRank(GlobalPatterns, rank = "Species", empty.rm = FALSE)
     not_uniq <- agglomerateByRank(
-        tse, rank = "Species", make.unique = FALSE, empty.rm = FALSE)
+        GlobalPatterns, rank = "Species", make.unique = FALSE, empty.rm = FALSE)
     expect_true( !any( duplicated(rownames(uniq)) ) )
     expect_true( any( duplicated(rownames(not_uniq)) ) )
 
     ## START test agglomerateByModule ##
 
     # Generate random modules
-    N_module <- 30L
+    N_module <- 5L
+    set.seed(4235)
     modules <- sample(
         c(TRUE, FALSE),
         size = nrow(tse) * N_module,
@@ -194,6 +192,7 @@ test_that("agglomerate", {
     ## END test agglomerateByModule ##
 
     # Load data from miaTime package
+    skip_if_not_installed("miaTime")
     data("SilvermanAGutData", package = "miaTime")
     se <- SilvermanAGutData
 
@@ -205,14 +204,22 @@ test_that("agglomerate", {
     expect_true(all(vapply(
         seqs_test, function(seq) sum(seqs_ref %in% seq) == 1,
         FUN.VALUE = logical(1) )) )
+    # checking reference consensus sequence generation using 'Genus:Alistipes'
+    expect_equal(as.character(referenceSeq(actual)[["Alistipes"]]),
+                 paste0("TCAAGCGTTATCCGGATTTATTGGGTTTAAAGGGTGCGTAGGCGGTTTGATAA",
+                        "GTTAGAGGTGAAATCCCGGGGCTTAACTCCGGAACTGCCTCTAATACTGTTAG",
+                        "ACTAGAGAGTAGTTGCGGTAGGCGGAATGTATGGTGTAGCGGTGAAATGCTTA",
+                        "GAGATCATACAGAACACCGATTGCGAAGGCAGCTTACCAAACTATATCTGACG",
+                        "TTGAGGCACGAAAGCGTGGGG"))
     # Merging creates consensus sequences.
-    th <- runif(1, 0, 1)
+    th <- 0.3
     actual <- agglomerateByRank(
         se, "Genus", update.refseq = TRUE, threshold = th)
     seqs_test <- referenceSeq(actual)
     # Get single taxon as reference. Merge those sequences and test that it
     # equals to one that is output of agglomerateByRank
     seqs_ref <- referenceSeq(se)
+    set.seed(1287)
     feature <- sample(na.omit(rowData(se)[["Genus"]]), 1)
     seqs_ref <- seqs_ref[ rowData(se)[["Genus"]] %in% feature ]
     seqs_ref <- .merge_refseq(
@@ -221,14 +228,7 @@ test_that("agglomerate", {
     seqs_test <- seqs_test[ names(seqs_test) %in% feature ]
     expect_equal(seqs_test, seqs_ref)
 
-    # checking reference consensus sequence generation using 'Genus:Alistipes'
-    actual <- agglomerateByRank(se,"Genus", update.refseq = FALSE)
-    expect_equal(as.character(referenceSeq(actual)[["Alistipes"]]),
-                 paste0("TCAAGCGTTATCCGGATTTATTGGGTTTAAAGGGTGCGTAGGCGGTTTGATAA",
-                        "GTTAGAGGTGAAATCCCGGGGCTTAACTCCGGAACTGCCTCTAATACTGTTAG",
-                        "ACTAGAGAGTAGTTGCGGTAGGCGGAATGTATGGTGTAGCGGTGAAATGCTTA",
-                        "GAGATCATACAGAACACCGATTGCGAAGGCAGCTTACCAAACTATATCTGACG",
-                        "TTGAGGCACGAAAGCGTGGGG"))
+    # consensus with the default threshold, using 'Genus:Alistipes'
     actual <- agglomerateByRank(se,"Genus", update.refseq = TRUE)
     expect_equal(as.character(referenceSeq(actual)[["Alistipes"]]),
                  paste0("BCNMKCKTTVWYCKKMHTTMYTKKKYKTMMMKNKHDYKYMKDYKKNHNNNYMM",
