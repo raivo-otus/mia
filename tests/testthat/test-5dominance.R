@@ -31,7 +31,7 @@ test_that(".estimate_dominance", {
         #Rounded because, without it gave an error (average difference was
         #about 1E-08). The accuracy is sufficient to test if working correctly
         expect_equal(round(as.vector(mia:::.calc_core_dominance(tse_idx)), 7),
-                     round(c(0.9605911, 0.8980392, 0.9086758)), 7)
+                     round(c(0.9605911, 0.8980392, 0.9086758), 7))
 
         #.get_dominance
         #Rounded because, without it gave an error (average difference was
@@ -54,14 +54,14 @@ test_that(".estimate_dominance", {
             index="dbp",
             ntaxa = 1,
             aggregate = TRUE)), 7),
-                     round(c(0.2561576, 0.1647059, 0.5662100)), 7)
+                     round(c(0.2561576, 0.1647059, 0.5662100), 7))
 
         expect_equal(round(as.vector(mia:::.calc_dominance(
             assays(tse_idx)$counts,
             index="dmn",
             ntaxa = 1,
             aggregate = TRUE)), 7),
-                     round(c(0.5024631, 0.3254902, 0.6484018)), 7)
+                     round(c(0.5024631, 0.3254902, 0.6484018), 7))
 
 
         expect_equal(unname(round(mia:::.simpson_lambda(
