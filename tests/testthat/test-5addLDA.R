@@ -2,8 +2,8 @@ context("addLDA")
 test_that("addLDA", {
   skip_if_not_installed("topicmodels")
   data(GlobalPatterns, package="mia")
-  #
-  tse <- GlobalPatterns
+  # Fit the models on genus-level data instead of 19216 features
+  tse <- agglomerateByRank(GlobalPatterns, rank = "Genus")
   tse <- addLDA(tse)
   expect_named(reducedDims(tse),"LDA")
   expect_true(is.matrix(reducedDim(tse,"LDA")))
@@ -11,7 +11,7 @@ test_that("addLDA", {
   red <- reducedDim(tse,"LDA")
   expect_equal(names(attributes(red)),
                c("dim","dimnames","loadings", "model", "eval_metrics"))
-  expect_equal(dim(attr(red,"loadings")),c(19216,2))
+  expect_equal(dim(attr(red,"loadings")),c(nrow(tse),2))
   # Check if ordination matrix returned by topicmodels::LDA is the same as
   # getLDA and addLDA ones
   df <- as.data.frame(t(assay(tse, "counts")))
@@ -21,9 +21,9 @@ test_that("addLDA", {
   loadings <- t(as.data.frame(posteriors$terms))
   # Compare topicmodels::LDA and addLDA
   expect_equal(loadings, attr(red, "loadings"), tolerance = 10**-3)
-  scores2 <- getLDA(tse)
-  # Compare topicmodels::LDA and getLDA
-  expect_equal(loadings, attr(scores2, "loadings"), tolerance = 10**-3)
+  # Compare topicmodels::LDA and getLDA (addLDA stores the getLDA result)
+  scores2 <- getReducedDimAttribute(tse, "LDA", "loadings")
+  expect_equal(loadings, scores2, tolerance = 10**-3)
   # ERRORs
   expect_error(
     addLDA(GlobalPatterns, k = "test", assay.type = "counts", name = "LDA")
@@ -49,9 +49,8 @@ test_that("addLDA", {
   expect_error(
     addLDA(GlobalPatterns, k = 2, assay.type = "counts", name = TRUE)
   )
-  # Check that perplexity is calculated correctly
-  k <- sample(seq(2, 10), 1)
-  lda <- getLDA(tse, k = k)
+  # Check that perplexity is calculated correctly, from the model fitted above
+  lda <- reducedDim(tse, "LDA")
   ref <- topicmodels::perplexity(attr(lda, "model"))
   test <- attr(lda, "eval_metrics")[["perplexity"]]
   expect_equal(test, ref)
