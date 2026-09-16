@@ -12,8 +12,7 @@ test_that("meltSE", {
         mia:::.norm_add_row_data(TRUE, .internal_MARGIN = "col"),
         'argument "x" is missing')
     #
-    data(GlobalPatterns, package="mia")
-    x <- GlobalPatterns
+    x <- gp_small
     actual <- mia:::.norm_add_row_data(TRUE, x, "FeatureID")
     expect_equal(actual, colnames(rowData(x)))
     actual <- mia:::.norm_add_row_data(
@@ -42,7 +41,7 @@ test_that("meltSE", {
     expect_error(mia:::.check_dimred_for_melting(x, 2))
     #
     # Check that melting works correctly
-    se <- GlobalPatterns
+    se <- gp_small
     se <- addMDS(se, method = "euclidean")
     molten_assay <- meltSE(
         se,
@@ -118,6 +117,7 @@ test_that("meltSE", {
 
 context("getTop")
 test_that("", {
+    data(GlobalPatterns, package="mia")
     #
     expect_error(mia:::.check_max_taxa(),
                  'argument "top" is missing')
@@ -129,7 +129,6 @@ test_that("", {
     expect_error(mia:::.check_max_taxa(GlobalPatterns, 100000000, "counts"),
                  "'top' must be <= nrow(x)",fixed=TRUE)
     #
-    data(GlobalPatterns, package="mia")
     mean.taxa <- c("549656", "331820", "279599", "360229", "317182")
     sum.taxa <- c("549656", "331820", "279599", "360229", "317182")
     median.taxa <- c("549656", "331820", "317182", "94166",  "279599")
