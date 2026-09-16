@@ -102,17 +102,16 @@ test_that("CCA", {
     test <- attr(test, "obj")$CA$eig
     res <- vegan::rda(t(assay(sce)))$CA$eig
     expect_equal(unname(test), unname(res))
-    data(GlobalPatterns, package="mia")
-    GlobalPatterns <- addAlpha(GlobalPatterns, index = "shannon")
+    tse <- addAlpha(gp_small, index = "shannon")
     expect_error(getRDA(
-        GlobalPatterns, assay.type = "counts",
+        tse, assay.type = "counts",
         variables = c("Primer", "test")))
     res1 <- getRDA(
-        GlobalPatterns, assay.type = "counts",
+        tse, assay.type = "counts",
         variables = c("shannon", "SampleType"))
     res1 <- attr(res1, "obj")$CCA
     res2 <- getRDA(
-        GlobalPatterns, assay.type = "counts",
+        tse, assay.type = "counts",
         formula = data ~ shannon + SampleType)
     res2 <- attr(res2, "obj")$CCA
     expect_equal(res1, res2)
