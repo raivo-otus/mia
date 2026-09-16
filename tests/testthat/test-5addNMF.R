@@ -22,13 +22,16 @@ test_that("addNMF", {
   loadings <- t(nmf_model@fit@H)
   # Compare NMF::nmf and addNMF
   expect_equal(loadings, attr(red, "loadings"), tolerance = 10**-3)
-  scores2 <- getNMF(tse, k = 2, seed = 123)
-  # Compare NMF::nmf and getNMF
-  expect_equal(loadings, attr(scores2, "loadings"), tolerance = 10**-4)
-  # Test that additional parameters are passed
-  scores3 <- getNMF(tse, k = 2, nrun = 2)
+  # Compare NMF::nmf and getNMF (addNMF calls getNMF, so compare the stored
+  # result instead of fitting the model a third time)
+  scores2 <- getReducedDimAttribute(tse, "NMF", "loadings")
+  expect_equal(loadings, scores2, tolerance = 10**-4)
+  # Test that additional parameters are passed. Multiple runs are computed
+  # sequentially (.options = "-p") so that the test does not depend on the
+  # parallel backend of the machine.
+  scores3 <- getNMF(tse, k = 2, nrun = 2, .options = "-p")
   library("NMF")
-  nmf_model <- NMF::nmf(mat, rank = 2, nrun = 2)
+  nmf_model <- NMF::nmf(mat, rank = 2, nrun = 2, .options = "-p")
   expect_equal(attr(scores3, "NMF_output")@nrun, nmf_model@nrun)
   # ERRORs
   expect_error(
