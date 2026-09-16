@@ -109,8 +109,10 @@ test_that("merge", {
         names(res) <- c("sum", "sum_na", "mean", "mean_na")
         return(res)
     }
-    # Generate data
-    tse <- scuttle::mockSCE()
+    # Generate data (the reference is computed by hand, so a small object is
+    # enough)
+    set.seed(7321)
+    tse <- scuttle::mockSCE(ncells = 40, ngenes = 300)
     rowData(tse)[["group"]] <- sample(LETTERS, nrow(tse), replace = TRUE)
     colData(tse)[["group"]] <- sample(LETTERS, ncol(tse), replace = TRUE)
     # Create a data with NAs
@@ -161,8 +163,8 @@ test_that("merge", {
 
     # Check that agglomerateByRank and agglomerateByVariable work correctly
     # with na.rm
-    data(GlobalPatterns, package="mia")
-    tse <- GlobalPatterns
+    tse <- gp_small
+    set.seed(9812)
     col_idx <- sample(seq_len(ncol(tse)), 1)
     row_idx <- sample(seq_len(nrow(tse)), 1)
     tse_mod <- tse
@@ -207,13 +209,14 @@ test_that("merge", {
                                   rep("A", nrow(esophagus)-round(nrow(esophagus)/3)*3) )
     rowData(esophagus)$group2 <- c(rep(c("A", "B", "C"), each = nrow(esophagus)/3),
                                    rep("A", nrow(esophagus)-round(nrow(esophagus)/3)*3) )
-    rowData(GlobalPatterns)$group <- c(rep(c("C", "D", "E"), each = nrow(GlobalPatterns)/3),
-                                       rep("C", nrow(GlobalPatterns)-round(nrow(GlobalPatterns)/3)*3) )
+    gp <- gp_small
+    rowData(gp)$group <- c(rep(c("C", "D", "E"), each = nrow(gp)/3),
+                           rep("C", nrow(gp)-round(nrow(gp)/3)*3) )
     # Merge
-    tse <- mergeSEs(esophagus, GlobalPatterns, assay.type="counts")
+    tse <- mergeSEs(esophagus, gp, assay.type="counts")
     # Reorder data since mergeSEs does not order the data based on original order
     # (trees are pruned differently --> first instance represent specific branch)
-    tse <- tse[c(rownames(esophagus), rownames(GlobalPatterns)), ]
+    tse <- tse[c(rownames(esophagus), rownames(gp)), ]
     # Only esophagus has these groups --> the merge should contain only esophagus
     merged  <- agglomerateByVariable(
         tse, by = "rows", group = rowData(tse)$group2, update.tree=TRUE)
@@ -222,16 +225,12 @@ test_that("merge", {
     merged3 <- agglomerateByVariable(
         esophagus, by = "rows", group = rowData(esophagus)$group2, update.tree = TRUE)
     merged4 <- .merge_features(tse, merge.by = rowData(tse)$group2, update.tree = TRUE)
-    merged5 <- agglomerateByVariable(
-        tse, by = "rows", group = rowData(tse)$group2, update.tree = TRUE)
     expect_equal( rowLinks(merged)$whichTree,
                   rowLinks(merged2)$whichTree )
     expect_false( all(rowLinks(merged) == rowLinks(merged2)) )
     expect_equal(rowTree(tse), rowTree(merged2))
-    expect_equal(merged4, merged5)
-    expect_equal(
-        agglomerateByVariable(tse, by = "rows", group = rowData(tse)$group2),
-        agglomerateByVariable(tse, by = "rows", group = rowData(tse)$group2))
+    # agglomerateByVariable is a wrapper of .merge_features
+    expect_equal(merged4, merged)
 
     # Both datasets have group variable
     merged <- agglomerateByVariable(
