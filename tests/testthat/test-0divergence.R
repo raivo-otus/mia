@@ -52,22 +52,23 @@ test_that("divergence estimates", {
   expect_equal(unname(
       round(colData(addDivergence(
           tse, reference = "mean", FUN = stats::dist,
-          method = "euclidean"))$divergence, 6)),
-      round(c(35.35534, 42.16634, 59.44746)),6)
+          method = "euclidean"))$divergence, 5)),
+      c(35.35534, 42.16634, 59.44746))
 
   expect_equal(unname(
       round(colData(addDivergence(
           tse, reference = assay(tse, "counts")[,3], FUN = stats::dist,
           method = "manhattan"))$divergence, 6)),
-      round(c(210, 280, 0)),6)
+      round(c(210, 280, 0), 6))
 
   expect_equal(unname(
       round(colData(addDivergence(
           tse, reference = assay(tse, "counts")[,1], FUN = vegan::vegdist,
           method = "chao"))$divergence, 6)),
-      round(c(0.00000000, 0.10115766, 0.08239422)),6)
+      round(c(0.00000000, 0.10115766, 0.08239422), 6))
 
   # Check different input types for reference
+  set.seed(51)
   sample <- sample(colnames(tse), 1)
   tse[["ref_name"]] <- rep(sample, ncol(tse))
   in_coldata <- getDivergence(tse, reference = "ref_name")
@@ -106,6 +107,7 @@ test_that("divergence estimates", {
 
   # Check that divergence is correctly calculated with multiple reference
   # samples.
+  set.seed(52)
   tse <- makeTSE(nrow = 1000, ncol = 20)
   assayNames(tse) <- "counts"
   reference <- sample(colnames(tse), 40, replace = TRUE)
