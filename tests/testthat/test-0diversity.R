@@ -118,9 +118,8 @@ test_that("diversity estimates", {
     expect_error(addAlpha(tse, index = "faith", tree.name = "test"))
     expect_error(addAlpha(tse, index = c("shannon", "faith"), tree.name = "test"))
 
-    data(GlobalPatterns, package="mia")
     data(esophagus, package="mia")
-    tse <- mergeSEs(GlobalPatterns, esophagus,  join = "full", assay.type = "counts")
+    tse <- mergeSEs(gp_small, esophagus,  join = "full", assay.type = "counts")
     expect_error(addAlpha(tse, index = c("shannon", "faith"), tree.name = "phylo.1", assay.type="counts"))
     expect_error(addAlpha(tse, index = c("faith"), tree.name = "test"))
     expect_error(addAlpha(tse, index = c("shannon", "faith"), tree.name = TRUE))
@@ -129,6 +128,7 @@ test_that("diversity estimates", {
     expect_no_error(addAlpha(tse, index = c("shannon", "faith"), tree.name = "phylo"))
 
     # Test Faith with picante packages results (version 1.8.2)
+    data(GlobalPatterns, package="mia")
     picante_res <- c(
         250.5354, 262.2629, 208.4578, 117.8762, 119.8247, 135.7673, 159.3715,
         123.3516, 143.7972, 111.7095, 156.4513, 147.9323, 247.2830, 253.2101,
