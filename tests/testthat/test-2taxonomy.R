@@ -69,8 +69,7 @@ test_that("taxonomy", {
                  c("Family:j","Phylum:a","Family:k","Family:l","Family:m",
                    "Family:n","Family:o_1","Phylum:c","Family:o_2"))
     # Check that lowest.rank works
-    data(GlobalPatterns)
-    tse <- GlobalPatterns
+    tse <- gp_small
     labs <- getTaxonomyLabels(tse, lowest.rank = "Kingdom", with.rank = TRUE)
     expect_true( all(unlist(lapply(labs, grepl, pattern = "Kingdom:"))) )
     labs <- getTaxonomyLabels(tse, lowest.rank = "Class", with.rank = TRUE)
@@ -134,15 +133,16 @@ test_that("taxonomy", {
     actual <- mapTaxonomy(se, taxa = c("Escherichia","Alkalibacterium"),from="Genus",
                           to="Family")
     expect_true(is.character(actual))
-    # Id taxa conversion
+    # Id taxa conversion (classifying 20 of the 175 example sequences is
+    # enough to test the conversion of the result)
     library(DECIPHER)
     data(TrainingSet_16S, package = "DECIPHER")
     fas <- system.file("extdata", "Bacteria_175seqs.fas", package="DECIPHER")
     dna <- readDNAStringSet(fas)
-    dna <- RemoveGaps(dna)
+    dna <- RemoveGaps(dna)[1:20]
     ids <- IdTaxa(dna, TrainingSet_16S, strand="top")
     actual <- IdTaxaToDataFrame(ids)
     expect_s4_class(actual,"DataFrame")
     expect_equal("confidence",names(metadata(actual)))
-    expect_equal(dim(actual),c(175,6))
+    expect_equal(dim(actual),c(20,6))
 })
