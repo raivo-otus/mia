@@ -1,7 +1,6 @@
 context("splitOn")
 test_that("splitOn", {
-    data(GlobalPatterns, package="mia")
-    x <- GlobalPatterns
+    x <- gp_small
 
     ################################## splitOn #################################
     # Test that throughs an error
@@ -42,7 +41,7 @@ test_that("splitOn", {
     # Test that number of tips of updated rowTree equals number of rows for
     # each tse in the list returned
     list <- splitOn(x, "SampleType", update.tree = TRUE)
-    for (k in length(list)){
+    for (k in seq_along(list)){
         expect_equal( length(rowTree(list[[k]], "phylo")$tip.label),
                       nrow(list[[k]]) )
     }
@@ -87,13 +86,17 @@ test_that("splitOn", {
     assay(unsplitted) <- as.matrix( assay(unsplitted) )
     expect_equal(assay(x), assay(unsplitted) )
 
-    # Split
-    list <- splitOn(x, "Phylum")
+    # Split by a rank (a rowData variable). The round trip does not depend on
+    # the number of groups, so keep three phyla; missing values form their
+    # own group.
+    x_sub <- x[rowData(x)$Phylum %in% head(unique(rowData(x)$Phylum), 3), ]
+    rowData(x_sub)$Phylum[1:5] <- NA
+    list <- splitOn(x_sub, "Phylum")
     # Unsplit
     unsplitted <- unsplitOn(list)
     # Order the data
-    unsplitted <- unsplitted[ rownames(x), colnames(x) ]
+    unsplitted <- unsplitted[ rownames(x_sub), colnames(x_sub) ]
     # Convert delayed matrix to normal
     assay(unsplitted) <- as.matrix( assay(unsplitted) )
-    expect_equal(assay(x), assay(unsplitted) )
+    expect_equal(assay(x_sub), assay(unsplitted) )
 })
