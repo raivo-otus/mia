@@ -183,6 +183,7 @@ test_that("getPERMANOVA handles edge cases", {
 
 test_that("getPERMANOVA matches direct calculations", {
     # Perform direct calculations with vegan package for comparison
+    set.seed(1)
     permanova_direct <- vegan::adonis2(
         t(assay(tse, "relabundance")) ~ SampleType,
         data = colData(tse),
@@ -194,6 +195,7 @@ test_that("getPERMANOVA matches direct calculations", {
     )
     
     # Run the getPERMANOVA function and compare results
+    set.seed(1)
     res <- getPERMANOVA(
         tse, assay.type = "relabundance",
         formula = x ~ SampleType,
@@ -202,8 +204,9 @@ test_that("getPERMANOVA matches direct calculations", {
         permutations = 99
     )
     
-    # Verify permanova results match
-    expect_equal(res$permanova$aov.tab, permanova_direct$aov.tab)
+    # Verify permanova results match (the same seed gives the same
+    # permutations)
+    expect_equal(res$permanova, permanova_direct, check.attributes = FALSE)
     
     # Verify homogeneity results match
     expect_equal(

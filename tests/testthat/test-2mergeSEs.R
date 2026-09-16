@@ -18,8 +18,8 @@ test_that("mergeSEs", {
     expect_error( mergeSEs(tse1, tse2, collapse.cols = 1) )
     expect_error( mergeSEs(tse1, tse2, collapse.cols = "test") )
     expect_error( mergeSEs(tse1, tse2, collapse.cols = NULL) )
-    expect_error( mergeSEs(list(tse1, tse2, tse), join = "left") )
-    expect_error( mergeSEs(list(tse1, tse2, tse), join = "right") )
+    expect_error( mergeSEs(list(tse1, tse2, tse3), join = "left") )
+    expect_error( mergeSEs(list(tse1, tse2, tse3), join = "right") )
     expect_error( mergeSEs(tse1, tse2, missing.values = TRUE ) )
     expect_error( mergeSEs(tse1, tse2, missing.values = 36846 ) )
     expect_error( mergeSEs(tse1, tse2, assay.type = "test")  )
@@ -50,10 +50,10 @@ test_that("mergeSEs", {
                   check.attributes = FALSE)
     
     # Expect that rowTree is preserved if rownames match
-    tse <- mergeSEs(list(tse1, GlobalPatterns), 
+    tse <- mergeSEs(list(gp_small[1:50, ], gp_small),
                                          assay.type = "counts",
                                          missing.values = NA)
-    expect_equal(rowTree(GlobalPatterns), rowTree(tse))
+    expect_equal(rowTree(gp_small), rowTree(tse))
     # Expect some NAs
     tse <- mergeSEs(list(tse1, tse2), assay.type = "counts")
     expect_true( any(is.na(assay(tse))) )
@@ -321,13 +321,13 @@ test_that("mergeSEs", {
     
     # Check that rownames match with node labels (These datasets have node labs
     # that are named by rownames.)
-    tse <- mergeSEs(GlobalPatterns, esophagus)
+    tse <- mergeSEs(gp_small, esophagus)
     expect_equal( rownames(tse), rowLinks(tse)$nodeLab )
     
     # Expect that tree includes nodes of input trees that correspond to rows.
     # The nodes are sorted since input trees with highest number of taxa are put
     # first before merge.
-    test <- sort(c(rowLinks(GlobalPatterns)$nodeLab, rowLinks(esophagus)$nodeLab))
+    test <- sort(c(rowLinks(gp_small)$nodeLab, rowLinks(esophagus)$nodeLab))
     expect_equal( rownames(tse), test )
     
     # Expect that each tip is found from rows when tree is pruned during merge.
@@ -335,26 +335,27 @@ test_that("mergeSEs", {
     expect_equal( rownames(tse), test )
     
     # Check that rowData includes all the information
-    data(esophagus, package="mia")
-    data(GlobalPatterns, package="mia")
+    eso <- esophagus
+    gp <- gp_small
     # Add arbitrary groups
-    rowData(esophagus)$group <- c(rep(c("A", "B", "C"), each = nrow(esophagus)/3), 
-                                  rep("A", nrow(esophagus)-round(nrow(esophagus)/3)*3) )
-    rowData(esophagus)$group2 <- c(rep(c("A", "B", "C"), each = nrow(esophagus)/3), 
-                                   rep("A", nrow(esophagus)-round(nrow(esophagus)/3)*3) )
-    rowData(GlobalPatterns)$group <- c(rep(c("C", "D", "E"), each = nrow(GlobalPatterns)/3), 
-                                       rep("C", nrow(GlobalPatterns)-round(nrow(GlobalPatterns)/3)*3) )
-    tse <- mergeSEs(esophagus, GlobalPatterns)
-    rd_esophagus <- rowData(tse)[rownames(esophagus), ]
-    rd_gb <- rowData(tse)[rownames(GlobalPatterns), ]
-    expect_equal(rowData(esophagus), rd_esophagus[, colnames(rowData(esophagus))])
-    expect_equal(rowData(GlobalPatterns), rd_gb[, colnames(rowData(GlobalPatterns))])
+    rowData(eso)$group <- c(rep(c("A", "B", "C"), each = nrow(eso)/3), 
+                            rep("A", nrow(eso)-round(nrow(eso)/3)*3) )
+    rowData(eso)$group2 <- c(rep(c("A", "B", "C"), each = nrow(eso)/3), 
+                             rep("A", nrow(eso)-round(nrow(eso)/3)*3) )
+    rowData(gp)$group <- c(rep(c("C", "D", "E"), each = nrow(gp)/3), 
+                           rep("C", nrow(gp)-round(nrow(gp)/3)*3) )
+    tse <- mergeSEs(eso, gp)
+    rd_esophagus <- rowData(tse)[rownames(eso), ]
+    rd_gb <- rowData(tse)[rownames(gp), ]
+    expect_equal(rowData(eso), rd_esophagus[, colnames(rowData(eso))])
+    expect_equal(rowData(gp), rd_gb[, colnames(rowData(gp))])
     
     # Check that variables with different class are not combined
     tse1 <- esophagus
-    tse2 <- GlobalPatterns
-    tse3 <- GlobalPatterns[1:50, 1:10]
+    tse2 <- gp_small
+    tse3 <- gp_small[1:50, 1:10]
     # Create variables with different class
+    set.seed(6421)
     colData(tse1)$group <- sample(c(1, 2, 3), ncol(tse1), replace = TRUE)
     colData(tse2)$group <- sample(c("Group1", "Group2", "Group3"), ncol(tse2), 
                                   replace = TRUE)
@@ -383,6 +384,7 @@ test_that("mergeSEs", {
     
     # Test that reference sequences stay the same
     # Load data from miaTime package
+    skip_if_not_installed("miaTime")
     data("SilvermanAGutData", package = "miaTime")
     tse <- SilvermanAGutData
     tse1 <- tse

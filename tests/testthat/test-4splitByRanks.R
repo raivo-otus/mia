@@ -12,11 +12,12 @@ test_that("agglomerateByRanks", {
     expect_equal(dim(altExp(x,"Species")),c(944,26))
     
     # Chceck that agglomerateByRanks and splitByRanks results to same output
+    # (two ranks are enough; agglomerating all seven again is expensive)
     res1 <- altExps(x)
-    res2 <- splitByRanks(x)
-    expect_equal( names(res1), names(res2) )
+    res2 <- splitByRanks(x, ranks = c("Kingdom", "Class"))
+    expect_equal( names(res1)[c(1, 3)], names(res2) )
     expect_equal( res1[[1]], res2[[1]] )
-    expect_equal( res1[[3]], res2[[3]] )
+    expect_equal( res1[[3]], res2[[2]] )
 
     # unsplitByRanks
     x2 <- unsplitByRanks(x)

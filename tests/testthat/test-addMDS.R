@@ -47,7 +47,6 @@ test_that("Test named vector as node labels", {
     names(named_vector) <- rownames(tse)
     #
     tse <- tse[1:100, ]
-    vector <- rowLinks(tse)[["nodeLab"]]
     #
     res1 <- getMDS(
         tse,
@@ -56,12 +55,9 @@ test_that("Test named vector as node labels", {
         tree = rowTree(tse),
         node.label = named_vector
     ) |> expect_warning()
-    res2 <- getMDS(
-        tse,
-        assay.type = "counts",
-        method = "unifrac",
-        tree = rowTree(tse),
-        node.label = named_vector
-    ) |> expect_warning()
+    # A named vector maps rows to nodes by name and must give the same
+    # result as the default mapping through rowLinks
+    res2 <- getMDS(tse, assay.type = "counts", method = "unifrac") |>
+        expect_warning()
     expect_equal(res1, res2)
 })

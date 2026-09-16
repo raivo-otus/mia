@@ -45,17 +45,18 @@ context("summaries")
 test_that("summaries", {
     
     data(GlobalPatterns, package="mia")
-    expect_equal( getTop(GlobalPatterns, 
-                             method = "mean",
-                             top = 5,
-                             assay.type = "counts"), 
-                  getTop(GlobalPatterns, 
-                                 method = "mean",
-                                 top = 5,
-                                 assay.type = "counts") )
+    top <- getTop(GlobalPatterns, method = "mean", top = 5,
+                  assay.type = "counts")
+    ref <- rowMeans(assay(GlobalPatterns, "counts"))
+    ref <- names(sort(ref, decreasing = TRUE))[1:5]
+    expect_equal(top, ref)
 
-    expect_equal( summarizeDominance(GlobalPatterns),
-                  summarizeDominance(GlobalPatterns))
+    # Dominance summary counts the dominant taxa of the samples
+    dom <- summarizeDominance(GlobalPatterns)
+    ref <- addDominant(GlobalPatterns)[["dominant_taxa"]]
+    expect_setequal(dom[["dominant_taxa"]], unique(unlist(ref)))
+    expect_equal(sum(dom[["n"]]), ncol(GlobalPatterns))
+    expect_equal(dom[["rel_freq"]], dom[["n"]] / ncol(GlobalPatterns))
     
     # Test with multiple equal dominant taxa in one sample
     assay(GlobalPatterns)[1, 1] <- max(assay(GlobalPatterns)[, 1])

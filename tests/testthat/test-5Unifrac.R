@@ -1,5 +1,6 @@
 context("Unifrac beta diversity")
 test_that("Unifrac beta diversity", {
+    skip_if_not_installed("ecodive")
     data(esophagus, package="mia")
     tse <- esophagus
     tse <- transformAssay(tse, assay.type="counts", method="relabundance")
@@ -33,8 +34,8 @@ test_that("Unifrac beta diversity", {
                        tree.name = "phylo", weighted = 1)
     )
 
-    data(GlobalPatterns, package="mia")
-    tse <- GlobalPatterns
+    # The comparisons with ecodive hold for any tree, so use the small fixture
+    tse <- gp_small
     # Calculate unweighted unifrac
     unifrac_mia <- as.matrix(getDissimilarity(tse, method = "unifrac",
                                               weighted = FALSE))
@@ -51,10 +52,10 @@ test_that("Unifrac beta diversity", {
 
     # Test that the function works correctly when there are multiple trees.
     # The function should subset the data based on tree.
-    tse <- GlobalPatterns
+    tse <- gp_small
     trees <- list(phylo = rowTree(tse), tree2 = rowTree(tse))
     links <- rowLinks(tse)
-    links[ 1:500 , "whichTree"] <- "tree2"
+    links[ 1:100 , "whichTree"] <- "tree2"
     tse@rowTree <- trees
     tse@rowLinks <- links
     tse_ref <- tse
@@ -65,8 +66,6 @@ test_that("Unifrac beta diversity", {
                                     weighted = FALSE, tree.name = "tree2")
     )
     unifrac_mia <- as.matrix(unifrac_mia)
-
-    skip_if_not(requireNamespace("ecodive", quietly = TRUE))
     unifrac_ecodive <- as.matrix(ecodive::unweighted_unifrac(t(assay(tse_ref)),
                                               rowTree(tse_ref)))
     expect_equal(unifrac_mia, unifrac_ecodive)
@@ -83,7 +82,7 @@ test_that("Unifrac beta diversity", {
     # Test the function with agglomerated data. .get_unifrac renames
     # rownames based on tips and links to them. Then it also prunes the tree so
     # that rows are in tips.
-    tse <- GlobalPatterns
+    tse <- gp_small
     tse <- agglomerateByRank(tse, rank = "Species")
     tse_ref <- tse
     rownames(tse_ref) <- rowLinks(tse_ref)[["nodeLab"]]

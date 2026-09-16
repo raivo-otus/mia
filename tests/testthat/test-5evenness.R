@@ -22,7 +22,7 @@ test_that(".estimate_evenness", {
 
         expect_equal(round(as.vector(mia:::.get_evenness_values(
             mat, index = "camargo")), 7),
-                     round(c(0.6942294, 0.6230541, 0.8010094)), 7)
+                     round(c(0.6942294, 0.6230541, 0.8010094), 7))
 
         expect_equal(round(as.vector(mia:::.get_evenness_values(
             mat, index="pielou")),7),

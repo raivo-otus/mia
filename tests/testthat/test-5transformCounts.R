@@ -19,11 +19,10 @@ test_that("transformAssay", {
                      check.attributes = FALSE)
 
         ############################# RELATIVE ABUNDANCE #######################
-        # Calculates relative abundances. Should be equal.
+        # Calculates relative abundances. Should be equal to vegan.
         expect_equal(as.matrix(assays(mia::transformAssay(tse, method = "relabundance"))$relabundance),
-                     apply(as.matrix(assay(tse,"counts")), 2, FUN=function(x){
-                         x/sum(x)
-                     }), check.attributes = FALSE)
+                     vegan::decostand(as.matrix(assay(tse,"counts")), method = "total", MARGIN = 2),
+                     check.attributes = FALSE)
 
         mat <- matrix(1:60, nrow = 6)
         df <- DataFrame(n = c(1:6))
@@ -109,15 +108,6 @@ test_that("transformAssay", {
         expect_false(identical(scaling_factors_default, scaling_factors_75))
 
 
-        ## Check internal CSS equals CSS from metagenomeSeq package
-        ## First create subset matrix from metagenomeSeq calc
-        normalized_counts <- matrix(c(1.358696, 317.846608, 4.076087, 1.474926), nrow = 2, ncol = 2, byrow = TRUE)
-        rownames(normalized_counts) <- c(46043, 512519)
-        colnames(normalized_counts) <- c("NP3", "NP5")
-
-        # Test for equality of your CSS normalization with metagenomeSeq normalization
-        expect_true(all.equal(as.matrix(ass[19:20, 17:18]), normalized_counts, check.attributes = FALSE))
-
         ########################## PA ##########################################
         # Calculates pa transformation. Should be equal.
         actual <- assay(mia::transformAssay(tse, method = "pa"),"pa")
@@ -135,46 +125,16 @@ test_that("transformAssay", {
         expect_true(all(actual == 1 | actual == 0))
 
         ######################## HELLINGER #####################################
-        # Calculates Hellinger transformation. Should be equal.
-        # Calculates relative abundance table
-        relative <- assays(mia::transformAssay(tse, method = "relabundance", name = "relative"))$relative
-
-        expect_equal(as.matrix(assays(mia::transformAssay(tse, method = "hellinger", name = "test_123"))$test_123),
-                     apply(as.matrix(relative), 2, FUN=function(x){
-                         sqrt(x)
-                     }), check.attributes = FALSE)
+        # Values are compared with vegan below; check the custom name here.
+        expect_true("test_123" %in% assayNames(
+            mia::transformAssay(tse, method = "hellinger", name = "test_123")))
 
         ############################### CLR ####################################
-        # Calculates clr-transformation. Should be equal.
-
-        # Random pseudocount
-        pseudonumber <- runif(1, 1, 100)
-
+        # Values are compared with vegan below. Here: clr on data with zeroes
+        # must be an error, rclr must not.
         tse <- transformAssay(tse, method = "relabundance")
-        # Calculates relative abundance table
-        relative <- assay(tse, "relabundance")
-        relative <- relative + pseudonumber
-        # Tests clr
-        # Calc CLRs
-        mat <- assays(mia::transformAssay(tse, assay.type = "relabundance",
-                                           method = "clr", pseudocount = pseudonumber))$clr
-        mat_comp <- apply(as.matrix(relative), 2, FUN=function(x){
-            log(x) - mean(log(x))
-        })
-        # Remove attributes since vegan adds additional ones
-        attributes(mat) <- NULL
-        attributes(mat_comp) <- NULL
-        # Compare
-        expect_equal(mat, mat_comp)
-
-        # Expect that error occurs
         expect_error(mia::transformAssay(tse, method = "clr"))
-
-        # Expect that error does not occur
         tse <- mia::transformAssay(tse, method = "rclr")
-
-        # Tests transformAssay, tries to calculate clr. Should be an error, because of zeros.
-        expect_error(mia::transformAssay(tse, method = "clr"))
 
         # Tests that clr robust gives values that are approximately same if only
         # one value per sample are changed to zero
@@ -285,6 +245,7 @@ test_that("transformAssay", {
         }
 
         # Calculates rank with pseudocount
+        set.seed(1)
         tse_rank_pseudo <- transformAssay(tse, method = "rank", pseudocount = runif(1, 0, 1000))
         # Pseudocount should not change the rank
         expect_equal(tse_rank, tse_rank_pseudo, check.attributes = FALSE)
@@ -351,285 +312,296 @@ test_that("transformAssay", {
                                     MARGIN = 2)
         compare <- t(compare)
         expect_equal(na.omit(actual), na.omit(compare))
-
-        # Check that transformation is applied to altExps
-        expect_error(transformAssay(tse, altexp = "Phylum"))
-        expect_error(transformAssay(tse, altexp = 1))
-        expect_error(transformAssay(tse, altexp = TRUE))
-        expect_error(transformAssay(tse, altexp = NA))
-        expect_error(transformAssay(tse, altexp = c(1, 2, 3)))
-        expect_error(transformAssay(tse, altexp = character(0)))
-        expect_warning(
-        tse <- agglomerateByRanks(tse)
-        )
-        ref <- transformAssay(altExp(tse, "Phylum"), method = "relabundance")
-        test <- transformAssay(tse, altexp = "Phylum", method = "relabundance")
-        test <- altExp(test, "Phylum")
-        expect_equal(assay(test, "relabundance"), assay(ref, "relabundance"))
-        #
-        ref <- transformAssay(altExp(tse, "Genus"), method = "relabundance")
-        test <- transformAssay(tse, method = "relabundance", altexp = altExpNames(tse))
-        test <- altExp(test, "Genus")
-        expect_equal(assay(test, "relabundance"), assay(ref, "relabundance"))
-
-        # Check that philt transformation works
-        skip_if_not_installed("philr")
-        data("GlobalPatterns")
-        tse <- GlobalPatterns
-        # The default is columns, and colTree is not present
-        expect_error(transformAssay(tse, method = "philr", pseudocount = 1))
-        # There must not be 0s
-        expect_error(transformAssay(tse, method = "philr", MARGIN = 1))
-        # Give error if tree does not match
-        data("esophagus")
-        expect_error(transformAssay(
-            tse, method = "philr", MARGIN = 1, pseudocount = 1,
-            tree = rowTree(esophagus)))
-        tse <- agglomerateByRank(tse, rank = "Phylum")
-        tse <- transformAssay(
-            tse, method = "philr", pseudocount = 1, MARGIN = 1L,
-            part.weights = "enorm.x.gm.counts",
-            ilr.weights = "blw.sqrt") |>
-            expect_message()
-        expect_true( "philr" %in% altExpNames(tse) )
-        #
-        test <- philr::philr(
-            t(assay(tse, "counts")+1),
-            rowTree(tse),
-            part.weights = "enorm.x.gm.counts",
-            ilr.weights = "blw.sqrt"
-            ) |> t()
-        expect_equal(
-            assay(altExp(tse, "philr"), "philr"),
-            test,
-            check.attributes = FALSE
-        )
-        expect_equal(colData(tse), colData(altExp(tse, "philr")))
-
-        ################################# CUTOFF ###############################
-        # Basic cutoff with NA value
-        expect_identical(
-            .apply_cutoff(c(0, 1, 2, 3, 0.5), 1),
-            c(NA, NA, 2, 3, NA)
-        )
-        # Basic cutoff with numeric replacement
-        expect_identical(
-            .apply_cutoff(c(0, 1, 2, 3, 0.5), 2, value = 999),
-            c(999, 999, 999, 3, 999)
-        )
-        # Error on non-length-1 value
-        expect_error(
-            .apply_cutoff(c(1, 2, 3), 1, value = c(1, 2)),
-            "'value' must be a single numeric value or NA"
-        )
-
-        ############################## BINNING ###############################
-        # Test that binning transformation works
-        tse_bin <- transformAssay(tse, method = "binning", nbins = 3)
-
-        # Expect warning trying to bin negative values
-        tse <- transformAssay(tse, method = "rclr")
-        expect_error(transformAssay(tse, method = "binning", assay.type = "rclr"))
-
-        # Check that the assay was created
-        expect_true("binning" %in% assayNames(tse_bin))
-
-        # Check that values are between 0 and 3
-        binned_assay <- assay(tse_bin, "binning")
-        expect_true(all(binned_assay >= 0 & binned_assay <= 3, na.rm = TRUE))
-
-        # Check that 0s are 0
-        counts <- assay(tse, "counts")
-        expect_true(all(binned_assay[counts == 0] == 0))
-
-        # Check non-zeros are > 0
-        expect_true(all(binned_assay[counts != 0] > 0))
-
-        # Manual check for N < B case
-        # 2 non-zero values, 4 nbins. Should map to 4 and 1.
-        test_mat <- matrix(c(10, 5, 0, 0), ncol=1)
-        tse_test <- SummarizedExperiment(assays = list(counts = test_mat))
-        tse_test <- transformAssay(tse_test, method = "binning", nbins = 4)
-        expect_equal(as.vector(assay(tse_test, "binning")), c(4, 1, 0, 0))
-
-        # Test error
-        expect_error(transformAssay(tse, method = "binning", nbins = "a"))
-        expect_error(transformAssay(tse, method = "binning", nbins = 0))
-
-        # Test feature-wise binning
-        tse_bin_feat <- transformAssay(tse, method = "binning", nbins = 3, MARGIN = "features")
-        expect_equal(dim(assay(tse_bin_feat, "binning")), dim(assay(tse, "counts")))
-
-        # Manual check for feature-wise
-        # 2 features, 3 samples
-        mat_feat <- matrix(c(10, 5, 0, 20, 0, 10), nrow=2, byrow=TRUE)
-        tse_feat <- SummarizedExperiment(assays = list(counts = mat_feat))
-        tse_feat <- transformAssay(tse_feat, method = "binning", nbins = 3, MARGIN = "features")
-        res_feat <- assay(tse_feat, "binning")
-
-        # Check rows (features)
-        expect_equal(as.vector(res_feat[1,]), c(3, 1, 0))
-        expect_equal(as.vector(res_feat[2,]), c(3, 0, 1))
-
-	      ############################## DIFFERENCE #############################
-        # Test that difference transformation works on GlobalPatterns subset
-        # Load data
-        data("GlobalPatterns")
-        tse <- GlobalPatterns
-
-        # Subset: 50 taxa, 10 samples
-        tse_sub <- tse[1:50, 1:10]
-
-        # Apply difference transformation
-        tse_sub <- transformAssay(
-            tse_sub, method = "difference", assay.type = "counts",
-            name = "difference", MARGIN = 1L
-        )
-
-        # Check that altExp exists
-        expect_true("difference" %in% altExpNames(tse_sub))
-
-        # Extract result
-        diff <- assay(altExp(tse_sub, "difference"))
-
-        # Expected dimensions
-        expect_equal(nrow(diff), choose(nrow(tse_sub), 2))
-        expect_equal(ncol(diff), ncol(tse_sub))
-
-        # Check that result is a sparse matrix
-        expect_s4_class(diff, "dgCMatrix")
-
-        # Check values (non-zero entries in sparse matrix)
-        expect_false(any(is.na(diff@x)))
-        expect_false(any(is.infinite(diff@x)))
-
-        # Metadata
-        expect_equal(attr(diff, "mia"), "difference")
-
-        # Check values
-        mat <- assay(tse_sub, "counts")
-        # Run a check across all feature pairs
-        feature_pairs <- rownames(diff)
-        all_correct <- sapply(feature_pairs, function(pair){
-            features <- unlist(strsplit(pair, "-", fixed = TRUE))
-            all(diff[pair, ] == (mat[features[1], ] - mat[features[2], ]))
-        })
-        all_correct |> all() |> expect_true()
-
-        ############################### DIVISION ###############################
-        # Test that division transformation works on GlobalPatterns subset
-        # Reset subset again (fresh counts)
-        tse_sub <- GlobalPatterns[1:50, 1:10]
-
-        # Apply division transformation
-        tse_sub <- transformAssay(
-            tse_sub, method = "division", assay.type = "counts",
-            name = "division", MARGIN = 1L
-        ) |> expect_warning() # Expect warning for 0 values
-
-        # Check that altExp exists
-        expect_true("division" %in% altExpNames(tse_sub))
-
-        # Extract result
-        div <- assay(altExp(tse_sub, "division"))
-
-        # Expected dimensions
-        expect_equal(nrow(div), choose(nrow(tse_sub), 2))
-        expect_equal(ncol(div), ncol(tse_sub))
-
-        # Check that result is a sparse matrix
-        expect_s4_class(div, "dgCMatrix")
-
-        # Check values (non-zero entries in sparse matrix)
-        expect_false(any(is.na(div@x)))
-        expect_false(any(is.infinite(div@x)))
-
-        # Metadata
-        expect_equal(attr(div, "mia"), "division")
-
-        # Check values
-        mat <- assay(tse_sub, "counts")
-        # Run a check across all feature pairs
-        feature_pairs <- rownames(div)
-        all_correct <- sapply(feature_pairs, function(pair){
-            features <- unlist(strsplit(pair, "-", fixed = TRUE))
-            ref <- (mat[features[1], ] / mat[features[2], ])
-            # The function does not store infinite numbers caused by zero
-            # division, which make them 0
-            ref[ mat[features[2], ] == 0 ] <- 0
-            all(div[pair, ] == ref)
-        })
-        all_correct |> all() |> expect_true()
-
-
-		############################## INVNORM ################################
-        tse <- GlobalPatterns
-
-        # Run inverse-rank normalisation column-wise (samples)
-        res <- transformAssay(
-            tse,
-            method = "invnorm",
-            MARGIN = "samples",
-            ties.method = "average",
-            offset = 0.5,
-            BPPARAM = BiocParallel::SerialParam()
-        )
-        inv <- assay(res, "invnorm")
-        cnt <- assay(tse, "counts")
-
-        # Shape and names match counts
-        expect_identical(dim(inv), dim(cnt))
-        expect_identical(dimnames(inv), dimnames(cnt))
-
-        # Attributes: method tag + parameters
-        expect_identical(attr(inv, "mia"), "invnorm")
-        pars <- attr(inv, "parameters")
-        expect_true(is.list(pars))
-        expect_identical(pars$`ties.method`, "average")
-        expect_identical(pars$offset, 0.5)
-
-        # NAs preserved in the same positions
-        expect_identical(is.na(inv), is.na(cnt))
-
-        # Compare columns against the formula
-        sel <- seq_len(ncol(cnt))
-        manual <- cnt[, sel, drop = FALSE]
-        for( j in seq_along(sel) ){
-            v  <- manual[, j]
-            ok <- !is.na(v)
-            n  <- sum(ok)
-            if (n == 0L) next
-            r <- rank(v[ok], ties.method = "average")
-            p <- (r - 0.5) / (n + 1 - 2 * 0.5)  # offset = 0.5
-            p[p <= 0] <- .Machine$double.eps
-            p[p >= 1] <- 1 - .Machine$double.eps
-            manual[ok, j]  <- qnorm(p)
-            manual[!ok, j] <- NA_real_
-        }
-        expect_equal(inv[, sel, drop = FALSE], manual, tolerance = 1e-12,
-                     check.attributes = FALSE)
-
-        # Counts assay unchanged
-        expect_equal(assay(res, "counts"), cnt, check.attributes = FALSE)
-
-        # Changing ties.method should change results
-        res_max <- transformAssay(
-            tse, method = "invnorm", MARGIN = "samples",
-            ties.method = "max", BPPARAM = BiocParallel::SerialParam()
-        )
-        expect_false(identical(assay(res_max, "invnorm"), inv))
-
-        # Invalid parameter values should error
-        expect_error(transformAssay(tse, method = "invnorm", offset = 0.75))
-        expect_error(transformAssay(tse, method = "invnorm", offset = -0.01))
-        expect_error(transformAssay(tse, method = "invnorm",
-                                    ties.method = "nope"))
     }
 
-    # TSE object
-    data(GlobalPatterns, package="mia")
-    tse <- GlobalPatterns
-    testTransformations(GlobalPatterns)
-    assay(tse,"counts") <- DelayedArray(assay(tse,"counts"))
+    # Run the checks on a matrix and on a DelayedArray assay. A small subset
+    # is enough: every check above is either an argument-validation check or
+    # a comparison with vegan/base R on the same matrix.
+    tse <- gp_small
     testTransformations(tse)
+    assay(tse, "counts") <- DelayedArray(assay(tse, "counts"))
+    testTransformations(tse)
+})
+
+# The checks below do not depend on the storage type of the assay, so they run
+# once (previously they ran twice, on identical input).
+test_that("transformAssay: css reference, altExps, cutoff, binning, difference, division, invnorm", {
+    # Check that the internal CSS equals CSS from the metagenomeSeq package;
+    # scaling factors depend on the whole matrix, so this uses the full data.
+    data(GlobalPatterns, package = "mia")
+    ass <- assay(mia::transformAssay(GlobalPatterns, method = "css"), "css")
+    normalized_counts <- matrix(c(1.358696, 317.846608, 4.076087, 1.474926), nrow = 2, ncol = 2, byrow = TRUE)
+    rownames(normalized_counts) <- c("46043", "512519")
+    colnames(normalized_counts) <- c("NP3", "NP5")
+    expect_equal(as.matrix(ass[rownames(normalized_counts), colnames(normalized_counts)]),
+                 normalized_counts, check.attributes = FALSE, tolerance = 1e-6)
+
+    tse <- gp_small
+    # Check that transformation is applied to altExps
+    expect_error(transformAssay(tse, altexp = "Phylum"))
+    expect_error(transformAssay(tse, altexp = 1))
+    expect_error(transformAssay(tse, altexp = TRUE))
+    expect_error(transformAssay(tse, altexp = NA))
+    expect_error(transformAssay(tse, altexp = c(1, 2, 3)))
+    expect_error(transformAssay(tse, altexp = character(0)))
+    altExp(tse, "Phylum") <- agglomerateByRank(tse, rank = "Phylum")
+    altExp(tse, "Genus") <- agglomerateByRank(tse, rank = "Genus")
+    ref <- transformAssay(altExp(tse, "Phylum"), method = "relabundance")
+    test <- transformAssay(tse, altexp = "Phylum", method = "relabundance")
+    test <- altExp(test, "Phylum")
+    expect_equal(assay(test, "relabundance"), assay(ref, "relabundance"))
+    #
+    ref <- transformAssay(altExp(tse, "Genus"), method = "relabundance")
+    test <- transformAssay(tse, method = "relabundance", altexp = altExpNames(tse))
+    test <- altExp(test, "Genus")
+    expect_equal(assay(test, "relabundance"), assay(ref, "relabundance"))
+
+    ################################# CUTOFF ###############################
+    # Basic cutoff with NA value
+    expect_identical(
+        .apply_cutoff(c(0, 1, 2, 3, 0.5), 1),
+        c(NA, NA, 2, 3, NA)
+    )
+    # Basic cutoff with numeric replacement
+    expect_identical(
+        .apply_cutoff(c(0, 1, 2, 3, 0.5), 2, value = 999),
+        c(999, 999, 999, 3, 999)
+    )
+    # Error on non-length-1 value
+    expect_error(
+        .apply_cutoff(c(1, 2, 3), 1, value = c(1, 2)),
+        "'value' must be a single numeric value or NA"
+    )
+
+    ############################## BINNING ###############################
+    # Test that binning transformation works
+    tse_bin <- transformAssay(tse, method = "binning", nbins = 3)
+
+    # Expect warning trying to bin negative values
+    tse <- transformAssay(tse, method = "rclr")
+    expect_error(transformAssay(tse, method = "binning", assay.type = "rclr"))
+
+    # Check that the assay was created
+    expect_true("binning" %in% assayNames(tse_bin))
+
+    # Check that values are between 0 and 3
+    binned_assay <- assay(tse_bin, "binning")
+    expect_true(all(binned_assay >= 0 & binned_assay <= 3, na.rm = TRUE))
+
+    # Check that 0s are 0
+    counts <- assay(tse, "counts")
+    expect_true(all(binned_assay[counts == 0] == 0))
+
+    # Check non-zeros are > 0
+    expect_true(all(binned_assay[counts != 0] > 0))
+
+    # Manual check for N < B case
+    # 2 non-zero values, 4 nbins. Should map to 4 and 1.
+    test_mat <- matrix(c(10, 5, 0, 0), ncol=1)
+    tse_test <- SummarizedExperiment(assays = list(counts = test_mat))
+    tse_test <- transformAssay(tse_test, method = "binning", nbins = 4)
+    expect_equal(as.vector(assay(tse_test, "binning")), c(4, 1, 0, 0))
+
+    # Test error
+    expect_error(transformAssay(tse, method = "binning", nbins = "a"))
+    expect_error(transformAssay(tse, method = "binning", nbins = 0))
+
+    # Test feature-wise binning
+    tse_bin_feat <- transformAssay(tse, method = "binning", nbins = 3, MARGIN = "features")
+    expect_equal(dim(assay(tse_bin_feat, "binning")), dim(assay(tse, "counts")))
+
+    # Manual check for feature-wise
+    # 2 features, 3 samples
+    mat_feat <- matrix(c(10, 5, 0, 20, 0, 10), nrow=2, byrow=TRUE)
+    tse_feat <- SummarizedExperiment(assays = list(counts = mat_feat))
+    tse_feat <- transformAssay(tse_feat, method = "binning", nbins = 3, MARGIN = "features")
+    res_feat <- assay(tse_feat, "binning")
+
+    # Check rows (features)
+    expect_equal(as.vector(res_feat[1,]), c(3, 1, 0))
+    expect_equal(as.vector(res_feat[2,]), c(3, 0, 1))
+
+    ############################## DIFFERENCE #############################
+    # Test that difference transformation works on a small subset
+    # Subset: 50 taxa, 10 samples
+    tse_sub <- gp_small[1:50, 1:10]
+
+    # Apply difference transformation
+    tse_sub <- transformAssay(
+        tse_sub, method = "difference", assay.type = "counts",
+        name = "difference", MARGIN = 1L
+    )
+
+    # Check that altExp exists
+    expect_true("difference" %in% altExpNames(tse_sub))
+
+    # Extract result
+    diff <- assay(altExp(tse_sub, "difference"))
+
+    # Expected dimensions
+    expect_equal(nrow(diff), choose(nrow(tse_sub), 2))
+    expect_equal(ncol(diff), ncol(tse_sub))
+
+    # Check that result is a sparse matrix
+    expect_s4_class(diff, "dgCMatrix")
+
+    # Check values (non-zero entries in sparse matrix)
+    expect_false(any(is.na(diff@x)))
+    expect_false(any(is.infinite(diff@x)))
+
+    # Metadata
+    expect_equal(attr(diff, "mia"), "difference")
+
+    # Check values
+    mat <- assay(tse_sub, "counts")
+    # Run a check across all feature pairs
+    feature_pairs <- rownames(diff)
+    all_correct <- sapply(feature_pairs, function(pair){
+        features <- unlist(strsplit(pair, "-", fixed = TRUE))
+        all(diff[pair, ] == (mat[features[1], ] - mat[features[2], ]))
+    })
+    all_correct |> all() |> expect_true()
+
+    ############################### DIVISION ###############################
+    # Test that division transformation works on a small subset
+    # Reset subset again (fresh counts)
+    tse_sub <- gp_small[1:50, 1:10]
+
+    # Apply division transformation
+    tse_sub <- transformAssay(
+        tse_sub, method = "division", assay.type = "counts",
+        name = "division", MARGIN = 1L
+    ) |> expect_warning() # Expect warning for 0 values
+
+    # Check that altExp exists
+    expect_true("division" %in% altExpNames(tse_sub))
+
+    # Extract result
+    div <- assay(altExp(tse_sub, "division"))
+
+    # Expected dimensions
+    expect_equal(nrow(div), choose(nrow(tse_sub), 2))
+    expect_equal(ncol(div), ncol(tse_sub))
+
+    # Check that result is a sparse matrix
+    expect_s4_class(div, "dgCMatrix")
+
+    # Check values (non-zero entries in sparse matrix)
+    expect_false(any(is.na(div@x)))
+    expect_false(any(is.infinite(div@x)))
+
+    # Metadata
+    expect_equal(attr(div, "mia"), "division")
+
+    # Check values
+    mat <- assay(tse_sub, "counts")
+    # Run a check across all feature pairs
+    feature_pairs <- rownames(div)
+    all_correct <- sapply(feature_pairs, function(pair){
+        features <- unlist(strsplit(pair, "-", fixed = TRUE))
+        ref <- (mat[features[1], ] / mat[features[2], ])
+        # The function does not store infinite numbers caused by zero
+        # division, which make them 0
+        ref[ mat[features[2], ] == 0 ] <- 0
+        all(div[pair, ] == ref)
+    })
+    all_correct |> all() |> expect_true()
+
+
+    ############################## INVNORM ################################
+    tse <- gp_small
+
+    # Run inverse-rank normalisation column-wise (samples)
+    res <- transformAssay(
+        tse,
+        method = "invnorm",
+        MARGIN = "samples",
+        ties.method = "average",
+        offset = 0.5,
+        BPPARAM = BiocParallel::SerialParam()
+    )
+    inv <- assay(res, "invnorm")
+    cnt <- assay(tse, "counts")
+
+    # Shape and names match counts
+    expect_identical(dim(inv), dim(cnt))
+    expect_identical(dimnames(inv), dimnames(cnt))
+
+    # Attributes: method tag + parameters
+    expect_identical(attr(inv, "mia"), "invnorm")
+    pars <- attr(inv, "parameters")
+    expect_true(is.list(pars))
+    expect_identical(pars$`ties.method`, "average")
+    expect_identical(pars$offset, 0.5)
+
+    # NAs preserved in the same positions
+    expect_identical(is.na(inv), is.na(cnt))
+
+    # Compare columns against the formula
+    sel <- seq_len(ncol(cnt))
+    manual <- cnt[, sel, drop = FALSE]
+    for( j in seq_along(sel) ){
+        v  <- manual[, j]
+        ok <- !is.na(v)
+        n  <- sum(ok)
+        if (n == 0L) next
+        r <- rank(v[ok], ties.method = "average")
+        p <- (r - 0.5) / (n + 1 - 2 * 0.5)  # offset = 0.5
+        p[p <= 0] <- .Machine$double.eps
+        p[p >= 1] <- 1 - .Machine$double.eps
+        manual[ok, j]  <- qnorm(p)
+        manual[!ok, j] <- NA_real_
+    }
+    expect_equal(inv[, sel, drop = FALSE], manual, tolerance = 1e-12,
+                 check.attributes = FALSE)
+
+    # Counts assay unchanged
+    expect_equal(assay(res, "counts"), cnt, check.attributes = FALSE)
+
+    # Changing ties.method should change results
+    res_max <- transformAssay(
+        tse, method = "invnorm", MARGIN = "samples",
+        ties.method = "max", BPPARAM = BiocParallel::SerialParam()
+    )
+    expect_false(identical(assay(res_max, "invnorm"), inv))
+
+    # Invalid parameter values should error
+    expect_error(transformAssay(tse, method = "invnorm", offset = 0.75))
+    expect_error(transformAssay(tse, method = "invnorm", offset = -0.01))
+    expect_error(transformAssay(tse, method = "invnorm",
+                                ties.method = "nope"))
+})
+
+test_that("transformAssay: philr", {
+    skip_if_not_installed("philr")
+    tse <- gp_small
+    # The default is columns, and colTree is not present
+    expect_error(transformAssay(tse, method = "philr", pseudocount = 1))
+    # There must not be 0s
+    expect_error(transformAssay(tse, method = "philr", MARGIN = 1))
+    # Give error if tree does not match
+    data("esophagus")
+    expect_error(transformAssay(
+        tse, method = "philr", MARGIN = 1, pseudocount = 1,
+        tree = rowTree(esophagus)))
+    tse <- agglomerateByRank(tse, rank = "Phylum")
+    tse <- transformAssay(
+        tse, method = "philr", pseudocount = 1, MARGIN = 1L,
+        part.weights = "enorm.x.gm.counts",
+        ilr.weights = "blw.sqrt") |>
+        expect_message()
+    expect_true( "philr" %in% altExpNames(tse) )
+    #
+    test <- philr::philr(
+        t(assay(tse, "counts")+1),
+        rowTree(tse),
+        part.weights = "enorm.x.gm.counts",
+        ilr.weights = "blw.sqrt"
+        ) |> t()
+    expect_equal(
+        assay(altExp(tse, "philr"), "philr"),
+        test,
+        check.attributes = FALSE
+    )
+    expect_equal(colData(tse), colData(altExp(tse, "philr")))
 })
