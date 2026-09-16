@@ -468,11 +468,10 @@ test_that("convertToPhyloseq", {
 
     skip_if_not_installed("phyloseq")
 
-    # TSE object
-    data(GlobalPatterns, package="mia")
-    tse <- GlobalPatterns
+    # TSE object (a subset with a pruned tree is enough for these checks)
+    tse <- gp_small
 
-    phy <- convertToPhyloseq(GlobalPatterns)
+    phy <- convertToPhyloseq(tse)
 
     # Test that assay is in otu_table
     expect_equal(as.data.frame(phyloseq::otu_table(phy)@.Data), as.data.frame(assays(tse)$counts))
@@ -503,8 +502,9 @@ test_that("convertToPhyloseq", {
     # The tip labels do not match because of renaming
     expect_identical(phyloseq::phy_tree(test2_phy)$edge, rowTree(test2)$edge)
 
-    # Check that everything works also with agglomerated data
-    for (level in colnames(rowData(tse)) ){
+    # Check that everything works also with agglomerated data (a rank with
+    # few missing values and one with many)
+    for (level in c("Phylum", "Species") ){
         temp <- agglomerateByRank(tse, rank = level)
         expect_no_warning(convertToPhyloseq(temp))
     }
@@ -512,7 +512,6 @@ test_that("convertToPhyloseq", {
     tse2 <- tse
     # Concerts data frame to factors
     rowData(tse2) <- DataFrame(lapply(rowData(tse2), as.factor))
-    phy <- convertToPhyloseq(tse)
     phy2 <- convertToPhyloseq(tse2)
     expect_equal(phyloseq::tax_table(phy2), phyloseq::tax_table(phy))
 
@@ -529,11 +528,11 @@ test_that("convertToPhyloseq", {
     expect_identical(phyloseq::phy_tree(phy), rowTree(tse))
 
     # Test that merging objects lead to correct phyloseq
-    tse <- mergeSEs(GlobalPatterns, esophagus, assay.type="counts", missing.values = 0)
+    tse <- mergeSEs(gp_small, esophagus, assay.type="counts", missing.values = 0)
     pseq <- convertToPhyloseq(tse, assay.type="counts")
 
     # Include rownames from both trees
-    tse_compare <- tse[ c(rownames(GlobalPatterns), rownames(esophagus)), ]
+    tse_compare <- tse[ c(rownames(gp_small), rownames(esophagus)), ]
     pseq_compare <- convertToPhyloseq(tse_compare, assay.type="counts")
 
     expect_equal(phyloseq::otu_table(pseq), phyloseq::otu_table(pseq_compare))
