@@ -1,7 +1,6 @@
 
 test_that("Test getReducedDimAttribute", {
-    data(GlobalPatterns)
-    tse <- GlobalPatterns
+    tse <- gp_small
     #
     res <- getReducedDimAttribute(tse) |> expect_error()
     # Calculate MDS
@@ -18,6 +17,7 @@ test_that("Test getReducedDimAttribute", {
     res <- getReducedDimAttribute(tse)
     expect_equal(res, ref)
     #
+    set.seed(7)
     for( nam in names(ref) ){
         # Get randomly an index to test
         if( rnorm(1)>0 ){
