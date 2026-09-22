@@ -2,9 +2,11 @@ context("addLDA")
 test_that("addLDA", {
   skip_if_not_installed("topicmodels")
   data(GlobalPatterns, package="mia")
-  # Fit the models on genus-level data instead of 19216 features
+  # Fit the models on genus-level data instead of 19216 features. On this data
+  # the fit depends on the seed, and topicmodels seeds from the clock by
+  # default, so both fits below get the same fixed seed.
   tse <- agglomerateByRank(GlobalPatterns, rank = "Genus")
-  tse <- addLDA(tse)
+  tse <- addLDA(tse, control = list(seed = 123))
   expect_named(reducedDims(tse),"LDA")
   expect_true(is.matrix(reducedDim(tse,"LDA")))
   expect_equal(dim(reducedDim(tse,"LDA")),c(26,2))
@@ -13,17 +15,14 @@ test_that("addLDA", {
                c("dim","dimnames","loadings", "model", "eval_metrics"))
   expect_equal(dim(attr(red,"loadings")),c(nrow(tse),2))
   # Check if ordination matrix returned by topicmodels::LDA is the same as
-  # getLDA and addLDA ones
+  # the addLDA one (addLDA stores the getLDA result)
   df <- as.data.frame(t(assay(tse, "counts")))
-  lda_model <- topicmodels::LDA(df, 2)
+  lda_model <- topicmodels::LDA(df, 2, control = list(seed = 123))
   posteriors <- topicmodels::posterior(lda_model, df)
   scores1 <- t(as.data.frame(posteriors$topics))
   loadings <- t(as.data.frame(posteriors$terms))
   # Compare topicmodels::LDA and addLDA
   expect_equal(loadings, attr(red, "loadings"), tolerance = 10**-3)
-  # Compare topicmodels::LDA and getLDA (addLDA stores the getLDA result)
-  scores2 <- getReducedDimAttribute(tse, "LDA", "loadings")
-  expect_equal(loadings, scores2, tolerance = 10**-3)
   # ERRORs
   expect_error(
     addLDA(GlobalPatterns, k = "test", assay.type = "counts", name = "LDA")

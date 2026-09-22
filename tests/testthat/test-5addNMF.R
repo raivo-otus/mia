@@ -15,17 +15,13 @@ test_that("addNMF", {
                c("dim","dimnames","loadings", "NMF_output"))
   expect_equal(dim(attr(red,"loadings")),c(35,2))
   # Check if ordination matrix returned by NMF::nmf is the same as
-  # getNMF and addNMF ones
+  # the addNMF one (addNMF stores the getNMF result)
   mat <- t(assay(tse, "counts"))
   library("NMF")
   nmf_model <- NMF::nmf(mat, rank = 2, seed = 123)
   loadings <- t(nmf_model@fit@H)
   # Compare NMF::nmf and addNMF
-  expect_equal(loadings, attr(red, "loadings"), tolerance = 10**-3)
-  # Compare NMF::nmf and getNMF (addNMF calls getNMF, so compare the stored
-  # result instead of fitting the model a third time)
-  scores2 <- getReducedDimAttribute(tse, "NMF", "loadings")
-  expect_equal(loadings, scores2, tolerance = 10**-4)
+  expect_equal(loadings, attr(red, "loadings"), tolerance = 10**-4)
   # Test that additional parameters are passed. Multiple runs are computed
   # sequentially (.options = "-p") so that the test does not depend on the
   # parallel backend of the machine.

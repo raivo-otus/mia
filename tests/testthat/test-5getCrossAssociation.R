@@ -43,9 +43,11 @@ test_that("getCrossAssociation", {
         list(verbose = 1),
         list(x = mae[[1]], experiment2 = assay(mae[[2]], "nmr")),
         list(x = mae[[1]], experiment2 = NULL),
-        list(col.var1 = FALSE),
-        list(col.var2 = 1),
-        list(col.var1 = "test"),
+        # Only one of assay.type, col.var and dimred may be given, so the
+        # assay.type is cleared to reach the col.var checks themselves
+        list(assay.type1 = NULL, col.var1 = FALSE),
+        list(assay.type2 = NULL, col.var2 = 1),
+        list(assay.type1 = NULL, col.var1 = "test"),
         list(experiment2 = 1, assay.type2 = "counts", test.signif = TRUE,
              symmetric = "TRUE"),
         list(experiment2 = 1, assay.type2 = "counts", test.signif = TRUE,
